@@ -9,7 +9,6 @@
 #define ECHOMAX 256     /* Longest string to echo */
 
 
-
 void receiveIt();
 void sendIt();
 void printIt(char *msg, int num);

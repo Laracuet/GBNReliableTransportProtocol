@@ -7,19 +7,12 @@
 #include <string.h>
 #include <pthread.h>
 
+#include "Header.h" 
+
 #define PORT 5555
 #define HOST_NAME "tylers-mac.bc.edu"
 #define NUM_THREADS 2 
 #define LINE_SIZE 256
-
-struct fileToSend {
-    int fd;
-    FILE *file;
-}; 
-
-int open_clientfd(char *hostname, int port); /* External FD Opener */
-void* send_file(void *args); /* External start routine for the sender thread */
-
 
 int main(int argc, char *argv[]) {
 	int clientfd;

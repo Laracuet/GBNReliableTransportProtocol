@@ -15,16 +15,14 @@
 #include <string.h>
 #include <pthread.h>
 
+#include "Header.h"
+
 #define LINE_SIZE 256
 
-struct fileToSend {
-    int fd;
-    FILE *file;
-};
-
-char* packetWrapper(void* args);
-
 void* send_file(void *d) {
+    
+    //setting counter for sequence number setting during while loop
+    int i=-1;
     
     //cast void* typed argument to our fileToSend struct
     struct fileToSend *data = (struct fileToSend*)d;
@@ -35,8 +33,28 @@ void* send_file(void *d) {
     
     while(fgets(line, LINE_SIZE, file) != NULL){
         int length = strlen(line);
-        printf("%s", line);
-        write(clientfd, line, length);
+        struct pktData newPacket;
+        void *args = (void *)&newPacket;
+        
+        //set up circular seq numbers and a better way to set the ACK up 
+        newPacket.checksum = 0; //TEST VALUE
+        newPacket.size = 0; //TEST VALUE
+        newPacket.seqNum = i++; //TEST VALUE
+        newPacket.isACK = 0; 
+        newPacket.line = line; 
+        
+        char *fullpkt = packetWrapper(args); 
+        if(!*fullpkt){
+            
+            //WRITE AN ERROR CHECK
+            printf("ERROR"); 
+        }
+        
+        //Debug print
+        printf("%s", fullpkt);
+        
+        
+        write(clientfd, fullpkt, length);
         sleep(1);
     }
 }

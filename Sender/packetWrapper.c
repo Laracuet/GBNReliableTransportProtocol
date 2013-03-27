@@ -15,12 +15,38 @@
 #include <string.h>
 #include <pthread.h>
 
+#include "Header.h" 
+
+#define cast_size 100
+
+
 char* packetWrapper(void* args){
     
-    /*copy string to array*/ 
-    char line[400];
-    strcpy(&line, l);
+    //casting the arguments back to the data struct
+    struct pktData *newData = (struct pktData*)args;
     
+    //Loading values from data struct
+    int check = newData->checksum;
+    int siz = newData->size;
+    int seq = newData->seqNum;
+    int ACK = newData->isACK;
     
+    //cast integer values from data struct to strings
+    char checksum = check;
+    char size = siz;
+    char seqNum = seq;
+    char isACK = ACK;
     
+    //create a buffer and concatenate all header values into it, finally including the line as the body. 
+    char line[4000];
+    memset(line, '\0', sizeof(line));
+    
+    strcpy(line, &checksum);
+    strcat(line, &size);
+    strcat(line, &seqNum);
+    strcat(line, &isACK);
+    strcat(line, newData->line);
+    
+    char *l = line;
+    return l;
 }
