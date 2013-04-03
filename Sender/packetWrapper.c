@@ -17,7 +17,7 @@
 
 #include "Header.h" 
 
-#define cast_size 100
+#define BUF_SIZE 100
 
 
 char* packetWrapper(void* args){
@@ -27,24 +27,27 @@ char* packetWrapper(void* args){
     
     //Loading values from data struct
     int check = newData->checksum;
-    int siz = newData->size;
-    int seq = newData->seqNum;
-    int ACK = newData->isACK;
+    //int check = checksum_generator();
     
-    //cast integer values from data struct to strings
-    char checksum = check;
-    char size = siz;
-    char seqNum = seq;
-    char isACK = ACK;
+    //Increment sequence number
+    int seq = newData->seqNum;
+    
+    //Might be a constant 0
+    //int ACK = newData->isACK;
+    int ACK = 0; 
+    
+    //cast integer values from data struct to a char buffer
+    char checksum = '0' + check;
+    char seqNum = '0' + seq;
+    char isACK = '0' + ACK;
     
     //create a buffer and concatenate all header values into it, finally including the line as the body. 
     char line[4000];
     memset(line, '\0', sizeof(line));
     
-    strcpy(line, &checksum);
-    strcat(line, &size);
-    strcat(line, &seqNum);
+    //concatenating the address at isACK takes all values from the struct into the header. 
     strcat(line, &isACK);
+    strcat(line, "\n"); 
     strcat(line, newData->line);
     
     char *l = line;

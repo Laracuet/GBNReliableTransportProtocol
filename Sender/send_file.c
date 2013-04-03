@@ -21,40 +21,63 @@
 
 void* send_file(void *d) {
     
-    //setting counter for sequence number setting during while loop
-    int i=-1;
-    
     //cast void* typed argument to our fileToSend struct
     struct fileToSend *data = (struct fileToSend*)d;
-
+    
+    //create a buffer for the line we will pull from the file and for the full packet we will pull off of the queue
     char line[LINE_SIZE];
+    char removedPacket[LINE_SIZE];
+    
+    //pull the file descriptor and the file from our arguments
     int clientfd = data->fd;
     FILE *file = data->file;
     
+    //set a counter to help with sequence numbers 
+    int sequenceCounter = 0;
+   
+    //while there are still lines in the file
     while(fgets(line, LINE_SIZE, file) != NULL){
-        int length = strlen(line);
+        
+        //create a struct to send to the packet wrapper
         struct pktData newPacket;
         void *args = (void *)&newPacket;
         
-        //set up circular seq numbers and a better way to set the ACK up 
-        newPacket.checksum = 0; //TEST VALUE
-        newPacket.size = 0; //TEST VALUE
-        newPacket.seqNum = i++; //TEST VALUE
-        newPacket.isACK = 0; 
+        /* WRITE THIS */ 
+        //Use algorithm to decide checksum
+        //newPacket.checksum; //TEST VALUE
+        
+        //set the sequence number in the packet struct 
+        if (sequenceCounter == 10){
+            newPacket.seqNum = 0;
+            sequenceCounter = 1;
+        }
+        else {
+            newPacket.seqNum = sequenceCounter;
+            sequenceCounter++;
+        }
+        
+        //add the data to the packet struct
         newPacket.line = line; 
         
-        char *fullpkt = packetWrapper(args); 
+        //send the packet info to the packet creation function
+        char *fullpkt = packetWrapper(args);
+        
+        //check to see the packet came back correctly 
         if(!*fullpkt){
-            
             //WRITE AN ERROR CHECK
             printf("ERROR"); 
         }
+
+        //add the newly made packet to our send queue and increment the semaphore
+        add2Q(fullpkt);
         
-        //Debug print
-        printf("%s", fullpkt);
+        //clear the memory for our packet buffer and pull the newest packet off of the queue. 
+        memset(removedPacket, '\0', sizeof(removedPacket));
+        removeFromQ(&removedPacket);
+        printf("%s", removedPacket);
         
-        
-        write(clientfd, fullpkt, length);
+        //write the newest packet to the client 
+        write(clientfd, removedPacket, sizeof(removedPacket));
         sleep(1);
     }
 }

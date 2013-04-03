@@ -6,10 +6,14 @@
 #include <netdb.h>
 #include <string.h>
 #include <pthread.h>
+#include <fcntl.h>           /* For O_* constants */
+#include <sys/stat.h>        /* For mode constants */
+
+
 
 #include "Header.h" 
 
-#define PORT 5555
+#define PORT 5556
 #define HOST_NAME "tylers-mac.bc.edu"
 #define NUM_THREADS 2 
 #define LINE_SIZE 256
@@ -19,6 +23,14 @@ int main(int argc, char *argv[]) {
     struct fileToSend fileData;
     void *args = (void *)&fileData;
     FILE *file = fopen("Reluctance.txt", "r");
+    
+    //Clearing semaphores
+    sem_close(lock);
+    sem_unlink("/lock");
+    
+    //initializing semaphore
+    lock = sem_open("/lock", O_CREAT, 0, Q_SIZE+1);
+
 
     if (file == NULL) {
         printf("Unable to open file.\n");
@@ -37,21 +49,30 @@ int main(int argc, char *argv[]) {
     pthread_t thread[NUM_THREADS];
     
     /* Launch Threads */
+    //Thread to send packets
     pthread_create(&thread[0], NULL, send_file, &fileData);
-    //pthread_create(&thread[1], NULL, , )
+    
+    //Thread to receive ACKs 
+    pthread_create(&thread[1], NULL, receiveACKs, NULL); 
     
     /* Wait for thread to complete */
     //pthread_join(thread[0], NULL);
     
+    
+    
+    //Waiting for input from the user -- Debugging tool
     for(;;) {
         char line[LINE_SIZE];
         fgets(line, LINE_SIZE, stdin);
         int length = strlen(line);
-        
         write(clientfd, line, length); 
     }
     
-
-	close(clientfd);
+    //closing semaphore
+    sem_close(lock);
+    sem_unlink("/lock"); 
+	
+    //closing socket
+    close(clientfd);
     return 0; 
 }
