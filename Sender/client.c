@@ -49,23 +49,20 @@ int main(int argc, char *argv[]) {
     pthread_t thread[NUM_THREADS];
     
     /* Launch Threads */
+    printf("about to launch threads\n"); 
     //Thread to send packets
     pthread_create(&thread[0], NULL, send_file, &fileData);
     
     //Thread to receive ACKs 
-    pthread_create(&thread[1], NULL, receiveACKs, NULL); 
+    pthread_create(&thread[1], NULL, receiveACKs, &fileData);
     
     /* Wait for thread to complete */
     //pthread_join(thread[0], NULL);
     
     
     
-    //Waiting for input from the user -- Debugging tool
+    //If this is not here, the program freaks out...seriously, try it
     for(;;) {
-        char line[LINE_SIZE];
-        fgets(line, LINE_SIZE, stdin);
-        int length = strlen(line);
-        write(clientfd, line, length); 
     }
     
     //closing semaphore

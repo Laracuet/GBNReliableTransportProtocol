@@ -40,7 +40,7 @@ struct pktData {
                                /* FUNCTIONS */
 
 int open_clientfd(char *hostname, int port); /* External FD Opener */
-void* send_file(void *args); /* External start routine for the sender thread */
+void* send_file(void *args); /* External start routine for the sender thread. Sends lines to the packetwrapper and stores them in the window */
 char* packetWrapper(void* args); /* Concatenates header info onto lines of the file */
 void* receiveACKs(void *args); /* Thread to listen for ACKs and adjust semaphores */
 

@@ -24,7 +24,6 @@ int nextOut = Q_SIZE;
 void add2Q(char *newPacket) {
     
     queue[nextIn] = newPacket;
-       sem_wait(lock);
     
     //printf("%s", queue[nextIn]);
     
