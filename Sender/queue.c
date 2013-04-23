@@ -40,6 +40,10 @@ void removeFromQ(char *packet) {
     //if there is an item on the queue, return it and replace it with '\0'
     if (queue[nextOut]){
         sendPacket = queue[nextOut];
+        
+        //copy the packet
+        strcpy(packet, sendPacket);
+        
         queue[nextOut] = '\0';
         
         
@@ -53,11 +57,7 @@ void removeFromQ(char *packet) {
     else {
         printf("NO ITEMS IN QUEUE\n");
         *packet = '\0';
-        exit(1); 
     }
-    
-    //return the packet
-    strcpy(packet, sendPacket);
     
 }
 
@@ -73,7 +73,7 @@ int main() {
     char *c = "HEY\n";
     char *d = "YES YOU\n";
     char *e = "WHAT DO YOU WANT\n";
-    char *f = "THIS IS ONE TOO MANY\n";
+    char *f = "1\n";
     char *g = "2\n";
     char *h = "3\n";
     char *i = "4\n";

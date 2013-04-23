@@ -18,9 +18,13 @@
 #include "Header.h"
 
 #define LINE_SIZE 256
+#define PKT_SIZE 1024
+
+char removedPacket[PKT_SIZE];
 
 void* send_file(void *d) {
     
+    strcpy(removedPacket, "\0");
     //cast void* typed argument to our fileToSend struct
     struct fileToSend *data = (struct fileToSend*)d;
     
@@ -37,9 +41,6 @@ void* send_file(void *d) {
     //while there are still lines in the file
     while(fgets(line, LINE_SIZE, file) != NULL){
         
-        //lock the semaphore to maintain the window size
-        sem_wait(lock);
-    
         //create a struct to send to the packet wrapper
         struct pktData newPacket;
         void *args = (void *)&newPacket;
@@ -59,7 +60,9 @@ void* send_file(void *d) {
         }
         
         //add the data to the packet struct
-        newPacket.line = line; 
+        //newPacket.line = line;
+        newPacket.line = (char *) malloc(sizeof(char) * strlen(line));
+        strcpy(newPacket.line,line);//?
         
         //send the packet info to the packet creation function
         char *fullpkt = packetWrapper(args);
@@ -69,13 +72,23 @@ void* send_file(void *d) {
             //WRITE AN ERROR CHECK
             printf("ERROR"); 
         }
-
+        
+        //lock the semaphore to maintain the window size
+        sem_wait(lock);
+        
         //add the newly made packet to our send queue 
         add2Q(fullpkt);
         
-        //test
-        printf("%s", fullpkt);
+        //clear the memory for our packet buffer and pull the newest packet off of the queue.
+
+        memset(removedPacket, '\0', sizeof(removedPacket));
+        removeFromQ(&removedPacket);
         
+        write(clientfd, removedPacket, sizeof(removedPacket));
+        
+        
+        //TESTING
+        //printf("%s", fullpkt);
         sleep(1);
     }
 }

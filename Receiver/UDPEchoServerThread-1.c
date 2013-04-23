@@ -5,6 +5,8 @@
 #include <string.h>     /* for memset() */
 #include <unistd.h>     /* for close() */
 #include <errno.h>      /* for errno */
+#include <semaphore.h>  /* for semaphores */  
+
 
 #define ECHOMAX 256     /* Longest string to echo */
 
@@ -20,6 +22,7 @@ struct sockaddr_in echoClntAddr; /* Requestor address */
 char echoBuffer[ECHOMAX];        /* Buffer for echo string */
 int recvMsgSize;                 /* Size of received message */
 unsigned int cliAddrLen;         /* Length of incoming message */
+sem_t *ok2Echo; 
 
 void DieWithError(char *errorMessage);  /* External error handling function */
 
@@ -31,6 +34,13 @@ int main(int argc, char *argv[])
 	void *thread_result;
 	int res;
 	int firstTime = 1;
+    
+    //Clearing Semaphores
+    sem_close(ok2Echo);
+    sem_unlink("/ok2Echo");
+    
+    //initializing semaphore
+    ok2Echo = sem_open("/ok2Echo", O_CREAT, 0, 1);
 
     if (argc != 2)         /* Test for correct number of parameters */
     {
@@ -46,12 +56,11 @@ int main(int argc, char *argv[])
 		
 	struct timeval tv;
 	
-	tv.tv_sec = 3;  /* 30 Secs Timeout */
+	tv.tv_sec = 3;  /* Timeout */
 	tv.tv_usec = 0;  // Not init'ing this can cause strange errors
 	/*
 	 You can use the setsockopt function to set a timeout on receive operations:
-	 
-	 
+     
 	 SO_RCVTIMEO
 	 
 	 Sets the timeout value that specifies the maximum amount of time an input 
@@ -106,7 +115,7 @@ int main(int argc, char *argv[])
 		(EXIT_FAILURE);
 	}
 	
-	res = pthread_create(&b_thread, NULL, send_function, NULL);  //thread for apacket sends
+	res = pthread_create(&b_thread, NULL, send_function, NULL);  //thread for packet sender
 	if (res != 0) {
 		perror("Thread creation failed");
 		(EXIT_FAILURE);
@@ -117,6 +126,11 @@ int main(int argc, char *argv[])
         perror("Thread join failed");
         exit(EXIT_FAILURE);
     }
+    
+    //closing semaphore
+    sem_close(ok2Echo);
+    sem_unlink("/ok2Echo");
+    
     printf("Thread done\n");
     return 0; 
 }      
@@ -142,42 +156,64 @@ void printIt(char *msg, int num){
 void sendIt(){
 	int packets = 10;
 	int count=0;
-	char *msg = "this is the message\n";
+	char *msg = "MESSAGE"; 
 	int size = strlen(msg);
 	int ss;
-	/* Set the size of the in-out parameter */
-	//cliAddrLen = sizeof(echoClntAddr);
-	//printf("size = %d\n",size);
-	//printIt(msg,size);
-	for (count = 0; count < packets; count++) 
-	{
-		if ((ss=sendto(sock, msg,size, 0, (struct sockaddr *) &echoClntAddr, sizeof(echoClntAddr))) != size){
-			//printf("ss = %d\n",ss);
-			DieWithError("sendto() failed");
+    
+    int seqNum = 0;
+    for(;;){
+        sem_wait(ok2Echo);
+        char msg = '0'+seqNum;
+        int size = strlen(&msg);
+        int ss;
+        
+        if (seqNum == 9)
+            seqNum = 0;
+        else
+            seqNum++; 
+        
+        /* Set the size of the in-out parameter */
+        cliAddrLen = sizeof(echoClntAddr);
+        
+        if ((ss=sendto(sock, &msg,size, 0, (struct sockaddr *) &echoClntAddr, sizeof(echoClntAddr))) != size){
+            DieWithError("sendto() failed");
 		}
-	}
-	
+
+    }
 	
 }
 
 void receiveIt(){
-	
+	int seqNum = 0;
+    
 	for (;;) /* Run forever */
 	{
+        
 	/* Block until receive message from a client or time out*/
 	if ((recvMsgSize = recvfrom(sock, echoBuffer, ECHOMAX, 0,
 	    (struct sockaddr *) &echoClntAddr, &cliAddrLen)) < 0)
 		
 	{
 		/* error: recvfrom() would have timed out */
-		if (errno == EWOULDBLOCK)  
+		if (errno == EWOULDBLOCK){
 			printf("nothing on the line\n");
-	}	
+        }
+	}
 	else
-	 {		
+	 {
 		 printf("recieved from requestor %s\n", inet_ntoa(echoClntAddr.sin_addr));
 		 printIt(echoBuffer, recvMsgSize);
 		 printf("I can now check for ack sequence number and adjust window appropriately\n");
+        
+         char seq = '0'+ seqNum; 
+         if (strcmp(&echoBuffer[1], &seq)){
+             printf("good sequence number\n");
+             seqNum++;
+             sem_post(ok2Echo);
+         }
+         else{
+             printf("Bad sequence number");
+         }
 	 }
 	}
 }

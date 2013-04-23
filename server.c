@@ -7,10 +7,13 @@
 #include <netinet/in.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <pthread.h>
 
-#define PORT 5555
-#define HOST "tylers-mac.bc.edu"
+#define PORT 5556
+#define HOST "Tylers-MacBook-Pro-2.local"
 #define SIZE 1000000
+
+void* clientReceiver(void* args); 
 
 void error (const char *msg)
 {
@@ -40,147 +43,32 @@ int getServerSocketfd(int portno)
 }
 
 int main (int argc, char *argv[]) {
+    printf("Server Started\n"); 
 	int serverSocket = getServerSocketfd(PORT);
 
 	//opens a socket on the port and hangs until a client comes
-	while(1){
-		struct sockaddr_in cli_addr;
-		socklen_t clilen = sizeof (struct sockaddr_in);
-		// This next line blocks (waits) until a client connects
-			printf("clilen = %d\n", clilen);
-		int clientSocketfd = accept (serverSocket, (struct sockaddr *) &cli_addr, &clilen);
-			printf("clilen = %d\n", clilen);
-		if (clientSocketfd < 0)
-			error ("ERROR on accept");
-	
-#define BUFLEN 256
-		while(1){	
-			char buffer[BUFLEN];
-			char page[BUFLEN];
-			char contentType[BUFLEN];
-			char pathBuff[BUFLEN];
-			char header_out[BUFLEN];
-			char *fileExt;
-			struct stat fileStat;
-			int fileSize = 0;
-			int notFound = 0;		
-		
-			//reads the packet from the client and stores it in a buffer
-			int n = read (clientSocketfd, buffer, BUFLEN - 1);	
+    struct sockaddr_in cli_addr;
+    socklen_t clilen = sizeof (struct sockaddr_in);
+    
+    // This next line blocks (waits) until a client connects
+    int clientSocketfd = accept (serverSocket, (struct sockaddr *) &cli_addr, &clilen);
+    printf("clilen = %d\n", clilen);
+    if (clientSocketfd < 0)
+        error ("ERROR on accept");
+    
+    void *args = (void *)&clientSocketfd;
+    
+    pthread_t thread[2];
+     
+    //Thread to receive packets
+    //pthread_create(&thread[0], NULL, clientReceiver, args);
+    //Thread to send ACKs
+    //pthread_create();
+    char *msg = "HEY";
+    write(clientSocketfd, msg, sizeof(msg));
+    printf("%s\n", msg); 
 
-			if (n < 0) {
-				perror ("ERROR reading from socket");
-				break;
-			}
-			buffer[n] = '\0';
-			printf("%s", buffer);//debugging   		
-
-            //if there is no adress, default.html can be assumed
-			if(!strncmp(buffer, "GET / HTTP/1.1", 14)){
-				strcpy(page, "default.html\0");
-				printf ("Here is the page name: [%s]\n", page);  
-			}
-
-			//otherwise, parse the name of the requested page from the GET line
-			else {
-				char *afterSlash = (strchr(buffer, '/')+1);
-        			char *spaceAfter = strstr(buffer, " HTTP");
-
-        			if (afterSlash && spaceAfter && (afterSlash < spaceAfter) && (!strncmp(spaceAfter+1, "HTTP/", 5))) {
-					int length = spaceAfter - afterSlash;
-                			strncpy(page, afterSlash, length);
-					page[length] = '\0'; 
-
-                                }
-
-				printf("\nHere is the page name: [%s]\n", page);//debugging
-			}
-			printf("Host: [%s] at Port: [%d]\n", HOST, PORT);//debugging
-
-			//set up the file path
-			sprintf(pathBuff, "WebPages/%s", page);
-			printf("Page at path: [%s]\n", pathBuff);
-
-			//Use stat() to extract file data, explicitly, the size
-			if (stat(pathBuff, &fileStat) < 0) {
-				printf("failed STAT");
-				strcpy(pathBuff, "WebPages/NOTFOUND"); 
-			}
-			else {
-				fileSize = fileStat.st_size;
-				printf("size of the file is: [%d]\n", fileSize); 
-						
-				//then, scan the page name for the file ending and pull the extension						
-				char *ext = strrchr(page, '.');
-				fileExt = strndup(ext, 5);	
-						
-				//check the file extension and assign the appropriate content-type
-				if (!strcmp(fileExt, ".html"))
-					strcpy(contentType, "text/html; charset=UTF-8");
-				else if (!strcmp(fileExt, ".jpg"))
-					strcpy(contentType, "image/jpg");
-				else if (!strcmp(fileExt, ".png"))
-					strcpy(contentType, "image/png");
-				else if(!strcmp(fileExt, ".gif"))
-					strcpy(contentType, "image/gif");
-				else {
-					strcpy(contentType, "unknown"); 
-				}
-				printf("Here is the file extension: [%s]\n", contentType);//debugging
-			
-			
-				//create the header with the file size and content-types found earlier. Write it to the client
-				sprintf(header_out, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: %s\n\n", fileSize, contentType);
-				printf("%s\n", header_out);
-				n = write(clientSocketfd, header_out, strlen(header_out));
-	
-				if (n < 0) {
-					perror ("ERROR writing to socket");
-        	        	 	break; 		
-				}	
-			}
-
-			//open the page
-        	        int requestedPageFD = open(pathBuff, O_RDONLY);
-        	        if (requestedPageFD < 0){
-        	                perror("Could not open input file");
-				break;
-			}
-		
-			//ready the buffer for the file transfer
-			char *writeBuff = malloc(SIZE); 
-			if (!buffer){
-				fprintf(stderr, "Unable to allocate buffer memory\n");
-				break;
-			}
-			ssize_t bytesRead;
-
-			//while bytes are still coming in, write them to the client
-			while((bytesRead = read(requestedPageFD, writeBuff, SIZE))>0){
-				ssize_t bytesWritten = write(clientSocketfd, writeBuff, bytesRead);
-			
-				if (bytesWritten ==-1){
-					perror("error writing file");
-					break;
-				}
-
-				if (bytesRead != bytesWritten)
-					fprintf(stderr, "Warning: %d bytes read, but only %d bytes written", (int)bytesRead, (int)bytesWritten);
-			}
-			free(writeBuff);			
-
-			if (bytesRead == -1){ 
-				perror("error reading file");
-				break;
-			}
-			
-			//close the requested page
-			close (requestedPageFD);
-			break;
-		}
-		//errors break to here, killing that client's connection, but keeping the server up
-		close (clientSocketfd); 
-	}
+    close (clientSocketfd);
 	close (serverSocket);
 	return 0;
 }

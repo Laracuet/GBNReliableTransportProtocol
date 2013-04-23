@@ -42,6 +42,4 @@ int open_clientfd(char *hostname, int port) {
 	}
 	free(serveraddr);
 	return clientfd; // success
-} 
-
-
+}

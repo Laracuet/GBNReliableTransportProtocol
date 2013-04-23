@@ -12,9 +12,12 @@
 
                               /* INCLUDES */ 
 #include <semaphore.h>
+#include <errno.h>      /* for errno */
+
 
                               /* VARIABLES */ 
-char *queue[Q_SIZE];
+char *queue[Q_SIZE+1];
+int clientfd;
 
                               /* SEMAPHORES */
 sem_t* lock;
@@ -41,8 +44,9 @@ struct pktData {
 
 int open_clientfd(char *hostname, int port); /* External FD Opener */
 void* send_file(void *args); /* External start routine for the sender thread. Sends lines to the packetwrapper and stores them in the window */
-char* packetWrapper(void* args); /* Concatenates header info onto lines of the file */
-void* receiveACKs(void *args); /* Thread to listen for ACKs and adjust semaphores */
+char* packetWrapper(void *args); /* Concatenates header info onto lines of the file */
+void* clientReceiver(void *args); /*Thread to lisen for ACKs */
+void resend(); /*Function to resend last packet for timeout or disorder*/
 
 
 

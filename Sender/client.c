@@ -14,12 +14,11 @@
 #include "Header.h" 
 
 #define PORT 5556
-#define HOST_NAME "tylers-mac.bc.edu"
+#define HOST_NAME "Tylers-MacBook-Pro-2.local"
 #define NUM_THREADS 2 
 #define LINE_SIZE 256
 
 int main(int argc, char *argv[]) {
-	int clientfd;
     struct fileToSend fileData;
     void *args = (void *)&fileData;
     FILE *file = fopen("Reluctance.txt", "r");
@@ -49,21 +48,15 @@ int main(int argc, char *argv[]) {
     pthread_t thread[NUM_THREADS];
     
     /* Launch Threads */
-    printf("about to launch threads\n"); 
+    printf("about to launch threads\n");
     //Thread to send packets
     pthread_create(&thread[0], NULL, send_file, &fileData);
     
     //Thread to receive ACKs 
-    pthread_create(&thread[1], NULL, receiveACKs, &fileData);
+    pthread_create(&thread[1], NULL, clientReceiver, &fileData);
     
     /* Wait for thread to complete */
-    //pthread_join(thread[0], NULL);
-    
-    
-    
-    //If this is not here, the program freaks out...seriously, try it
-    for(;;) {
-    }
+    pthread_join(thread[0], NULL);
     
     //closing semaphore
     sem_close(lock);
